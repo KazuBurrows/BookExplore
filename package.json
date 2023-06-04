@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "mysql": "^2.18.1",
+    "oracledb": "^5.4.0",
+    "prompt-sync": "^4.2.0",
+    "puppeteer": "^14.4.1"
+  }
+}

@@ -1,0 +1,526 @@
+
+https://www.w3schools.com/sql/sql_create_index.asp
+
+
+
+CREATE SEQUENCE myseq;
+
+CREATE TABLE Books
+	(ID NUMBER(11) PRIMARY KEY,
+	ISBN number(13, 0) NOT NULL,
+	Title varchar(255),
+	Author varchar(255),
+	Price number(38, 2),
+	Page varchar(255),
+	Store varchar(255)
+);
+
+CREATE TRIGGER mytrigger BEFORE INSERT ON Books FOR EACH ROW
+BEGIN
+  :new.ID := myseq.NEXTVAL;
+END;
+/
+
+
+
+
+CREATE TABLE Pages (
+	ID NUMBER(11) PRIMARY KEY,
+	Link VARCHAR(255)
+);
+
+
+
+
+CREATE SEQUENCE myPagesSeq;
+
+CREATE TRIGGER myPagesIDTtrigger BEFORE INSERT ON Pages FOR EACH ROW
+BEGIN
+	:new.ID := myPagesSeq.NEXTVAL;
+END;
+/
+
+
+
+
+
+CREATE OR REPLACE TRIGGER myPagesTrigger
+AFTER INSERT
+	ON Books
+	FOR EACH ROW
+
+BEGIN
+	INSERT INTO Pages
+	(ID,
+	Link )
+	VALUES
+	(0,
+	:new.page );
+END;
+/
+
+
+
+
+
+
+(
+	SELECT title
+	FROM books
+	WHERE title LIKE '%Bluey%'
+)
+INTERSECT
+(
+	SELECT title
+	FROM books
+	WHERE title LIKE '%Fun%'
+);
+
+
+
+
+CREATE OR REPLACE FUNCTION udfBookSearch2
+(
+	titleBlock1 VARCHAR,
+	titleBlock2 VARCHAR
+)
+RETURN TABLE
+AS
+BEGIN
+	SELECT title
+	FROM books
+	WHERE title LIKE '%@titleBlock1%';
+INTERSECT
+	SELECT title
+	FROM books
+	WHERE title LIKE '%@titleBlock2%';
+END;
+/
+
+
+select * from sys.user_errors;
+drop function udfbooksearch2;
+
+
+
+
+
+https://www.devart.com/dotconnect/oracle/docs/Table-Valued-Functions.html#:~:text=Table%2Dvalued%20functions%20in%20Oracle,FROM%20clause%20of%20SELECT%20statements.
+
+
+
+
+
+https://livesql.oracle.com/apex/livesql/file/tutorial_GSOTSK8FWLYZOG5CJJ9KPX7RX.html
+
+CREATE OR REPLACE TYPE udf_test_row AS OBJECT (
+  id           NUMBER,
+  title VARCHAR2(50)
+);
+/
+CREATE OR REPLACE TYPE udf_test_table IS TABLE OF udf_test_row;
+/
+
+
+
+
+
+
+
+
+https://learn.microsoft.com/en-us/sql/relational-databases/user-defined-functions/create-user-defined-functions-database-engine?source=recommendations&view=sql-server-ver16
+
+
+
+
+
+
+INLINE VIEW
+
+SELECT
+*
+FROM
+	(SELECT title
+	FROM books
+	WHERE title LIKE '%Bluey%') t1
+INNER JOIN
+	(SELECT title
+	FROM books
+	WHERE title LIKE '%Fun%') t2
+ON t1.title = t2.title;
+
+
+
+
+
+
+CREATE OR REPLACE FUNCTION udfBookSearch2
+(
+	titleBlock1 IN VARCHAR2,
+	titleBlock2 IN VARCHAR2
+)
+RETURN VARCHAR2 AS
+	my_title varchar2(4000);
+BEGIN
+
+SELECT title BULK COLLECT
+INTO my_title
+FROM
+(
+	SELECT title
+	FROM books
+	WHERE title LIKE '%Bluey%'
+INTERSECT
+	SELECT title
+	FROM books
+	WHERE title LIKE '%Fun%'
+);
+END;
+/
+
+
+
+
+
+
+
+create or replace type t_book as object (
+  t_title varchar2(4000)
+);
+/
+
+
+
+create or replace type t_table as table of t_book;
+/
+
+
+CREATE OR REPLACE FUNCTION udfBookSearch2 
+(
+	titleBlock1 IN VARCHAR2,
+	titleBlock2 IN VARCHAR2
+)
+RETURN t_table as
+    	v_ret   t_table;
+BEGIN
+
+select 
+	t_book(title)
+	bulk collect into
+	v_ret
+FROM
+(
+	SELECT title
+	FROM books
+	WHERE title LIKE CONCAT(CONCAT('%', titleBlock1), '%')
+INTERSECT
+	SELECT title
+	FROM books
+	WHERE title LIKE CONCAT(CONCAT('%', titleBlock2), '%')
+);
+
+return v_ret;
+END;
+/
+
+
+
+
+
+WITH ROWCTE1(title) AS (
+(
+	SELECT title
+	FROM books
+	WHERE title LIKE '%Harry%'
+)
+INTERSECT
+(
+	SELECT title
+	FROM books
+	WHERE title LIKE '%Potter%'
+)),
+ROWCTE2(title) AS (
+(
+	SELECT title
+	FROM books
+	WHERE title LIKE '%Locket%'
+)
+INTERSECT
+(
+	SELECT title
+	FROM books
+	WHERE title LIKE '%Potter%'
+))
+SELECT * FROM ROWCTE1
+INTERSECT
+SELECT * FROM ROWCTE2;
+
+
+
+WITH ROWCTE1(title) AS (
+SELECT * FROM TABLE(udfBookSearch2('Harry', 'Potter'))
+),
+ROWCTE2(title) AS (
+SELECT * FROM TABLE(udfBookSearch2('Locket', 'Potter'))
+)
+SELECT * FROM ROWCTE1
+INTERSECT
+SELECT * FROM ROWCTE2;
+
+
+
+
+
+
+
+
+
+
+---------------------------
+
+
+create or replace type t_book as object (
+  title varchar2(4000),
+  ID number
+);
+/
+
+
+
+create or replace type t_table as table of t_book;
+/
+
+
+CREATE OR REPLACE FUNCTION udfBookSearch 
+(
+	titleBlock IN VARCHAR2
+)
+RETURN t_table as
+    	v_ret   t_table;
+BEGIN
+
+select 
+	t_book(title, ID)
+	bulk collect into
+	v_ret
+FROM
+(
+	SELECT title, ID
+	FROM books
+	WHERE title LIKE CONCAT(CONCAT('%', titleBlock), '%')
+
+);
+
+return v_ret;
+END;
+/
+
+
+
+
+---------------
+
+
+
+
+
+CREATE GLOBAL TEMPORARY TABLE temp_search_table (
+  title varchar2(50)
+)
+ON COMMIT DELETE ROWS;
+
+
+CREATE GLOBAL TEMPORARY TABLE temp_results_table (
+  title varchar2(4000),
+  ID number
+)
+ON COMMIT DELETE ROWS;
+
+
+
+ON COMMIT PRESERVE ROWS;
+
+
+
+INSERT INTO temp_search_table VALUES ('Harry');
+INSERT INTO temp_search_table VALUES ('Potter');
+INSERT INTO temp_search_table VALUES ('Locket');
+
+SELECT * FROM temp_search_table;
+
+
+COMMIT; -- Will delete all rows.
+
+
+
+
+CREATE OR REPLACE PROCEDURE search_proc IS
+BEGIN
+	FOR tst_book IN (SELECT title FROM temp_search_table)
+	LOOP
+		FOR t_book IN (SELECT title, ID FROM udfBookSearch(tst_book.title))
+		LOOP
+			INSERT INTO temp_results_table
+			(title, ID)
+			VALUES (t_book.title, t_book.ID);
+		END LOOP;
+	END LOOP; 
+	FOR book IN (SELECT title FROM temp_results_table)
+	LOOP
+		DBMS_OUTPUT.PUT_LINE ('Loop test. Title : ' || book.title);
+	END LOOP;
+END;
+/
+
+
+EXECUTE search_proc;
+
+
+
+
+--------------------MORE TESTING-----------------------
+
+SELECT count(title) FROM TABLE(udfBookSearch('Locket'));
+
+SELECT ID, title FROM temp_results_table ORDER BY ID;
+
+SELECT ID, count(*) FROM temp_results_table group by ID;
+SELECT ID FROM temp_results_table group by ID HAVING COUNT(*) > 3-1;
+
+SELECT count(*) FROM temp_search_table;
+
+
+--------------------MORE TESTING-----------------------
+
+
+create or replace type tm_book as object (
+  title varchar2(4000),
+  ID number
+);
+/
+
+
+
+create or replace type tm_table as table of tm_book;
+/
+
+
+CREATE OR REPLACE FUNCTION
+main_func ( s_word_count number )
+RETURN tm_table as
+    	v_ret   tm_table;
+BEGIN
+select 
+	tm_book(title, ID)
+	bulk collect into
+	v_ret
+FROM
+(
+	SELECT ID, title
+	FROM temp_results_table
+	GROUP BY ID, title
+	HAVING COUNT(*) > s_word_count-1
+);
+
+return v_ret;
+END;
+/
+
+
+EXECUTE search_proc;
+SELECT * FROM TABLE(main_func(3));
+
+
+
+
+
+
+
+
+-------------------TESTING------------------
+
+CREATE OR REPLACE TYPE param_array AS VARRAY(200) OF VARCHAR2(50);
+/
+
+
+
+CREATE OR REPLACE PROCEDURE in_s_words_pro(search_words param_array)
+AS
+BEGIN
+	FOR search_word IN search_words
+	LOOP
+		INSERT INTO temp_search_table
+		(title)
+		VALUES (search_word);
+	END LOOP;
+END;
+/
+
+
+EXECUTE in_s_words_pro(Str_Array('AAA','BBB','CCC','DDD'));
+
+FOR ABOUT EXECUTE
+https://community.oracle.com/tech/developers/discussion/4047369/how-to-pass-an-array-of-strings-to-a-stored-procedure
+
+
+
+
+
+
+CREATE or replace PACKAGE MYPACK AS 
+     TYPE param_array is table of VARCHAR(50) index by BINARY_INTEGER;
+     PROCEDURE in_s_words_pro( search_words IN OUT param_array );
+     END MYPACK;
+/
+
+
+
+CREATE or replace PACKAGE BODY MYPACK AS 
+  PROCEDURE in_s_words_pro( search_words IN OUT param_array )
+  IS
+	i integer;
+  BEGIN
+	FOR i IN 1..3 LOOP
+		INSERT INTO temp_search_table
+		(title)
+		VALUES (search_words(i));
+	END LOOP;
+  END in_s_words_pro;
+END MYPACK;
+/
+
+
+
+https://docs.oracle.com/en/database/oracle/oracle-database/18/odpnt/featOraCommand.html
+
+
+
+
+
+
+
+
+
+
+BEGIN
+INSERT INTO temp_search_table VALUES ('Harry');
+INSERT INTO temp_search_table VALUES ('Potter');
+INSERT INTO temp_search_table VALUES ('Locket');
+search_proc();
+END;
+/
+
+
+SELECT * FROM TABLE(main_func(3));
+
+SELECT ID, title FROM TABLE(main_func(3));
+
+SELECT title FROM TABLE(main_func(3));
+
+https://stackoverflow.com/questions/33499813/reading-from-global-temp-table-with-oracle-manageddataaccess
+
+
+
+
+Select Text from User_Source where Name Like 'MAIN_FUNC';
+

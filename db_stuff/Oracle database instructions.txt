@@ -1,0 +1,51 @@
+Open SQL Plus
+
+Services -> Run OracleServiceXE
+
+
+/ as sysdba
+
+
+
+grant create session to freezerz;
+GRANT ALL PRIVILEGES TO freezerz;
+
+
+CREATE USER freezerz
+    IDENTIFIED BY Rockstar03;
+
+
+
+
+ALTER SYSTEM SET SEC_CASE_SENSITIVE_LOGON = FALSE;
+
+ALTER USER freezerz IDENTIFIED BY Rockstar03 ACCOUNT UNLOCK;
+
+
+
+
+INSERT INTO Books (ISBN, TITLE, AUTHOR, PRICE, PAGE) VALUES (9780007103072, 'Bible', 'Moses', 15.75, 'test.com');
+
+
+
+SELECT owner, table_name
+  FROM all_tables
+  WHERE owner = 'freezerz';
+
+
+SELECT table_name
+FROM user_tables;
+
+
+
+
+
+
+
+
+
+INSERT INTO Books VALUES (0, 9780007103072, 'Bible', 'Moses', 15.75, 'test.com');
+
+
+
+

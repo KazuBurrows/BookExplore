@@ -1,0 +1,260 @@
+
+
+CREATE SEQUENCE myseq;
+
+CREATE TABLE Books
+	(ID NUMBER(11) PRIMARY KEY,
+	ISBN number(13, 0) NOT NULL,
+	Title varchar(255),
+	Author varchar(255),
+	Price number(38, 2),
+	Page varchar(255),
+	Store varchar(255)
+);
+
+CREATE TRIGGER mytrigger BEFORE INSERT ON Books FOR EACH ROW
+BEGIN
+  :new.ID := myseq.NEXTVAL;
+END;
+/
+
+
+
+
+
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+
+
+
+
+
+CREATE TABLE Pages (
+	ID NUMBER(11) PRIMARY KEY,
+	Link VARCHAR(255)
+);
+
+
+
+
+CREATE SEQUENCE myPagesSeq;
+
+CREATE TRIGGER myPagesIDTtrigger BEFORE INSERT ON Pages FOR EACH ROW
+BEGIN
+	:new.ID := myPagesSeq.NEXTVAL;
+END;
+/
+
+
+
+
+
+CREATE OR REPLACE TRIGGER myPagesTrigger
+AFTER INSERT
+	ON Books
+	FOR EACH ROW
+
+BEGIN
+	INSERT INTO Pages
+	(ID,
+	Link )
+	VALUES
+	(0,
+	:new.page );
+END;
+/
+
+
+
+
+
+
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+
+
+
+
+
+
+
+
+create or replace type t_book as object (
+  ID number,
+  ISBN number,  
+  title varchar2(4000),
+  author varchar2(4000),
+  price number,
+  page varchar2(4000),
+  store varchar2(4000)
+);
+/
+
+
+
+create or replace type t_table as table of t_book;
+/
+
+
+CREATE OR REPLACE FUNCTION udfBookSearch 
+(
+	titleBlock IN VARCHAR2
+)
+RETURN t_table as
+    	v_ret   t_table;
+BEGIN
+
+select 
+	t_book(ID, ISBN, title, author, price, page, store)
+	bulk collect into
+	v_ret
+FROM
+(
+	SELECT ID, ISBN, title, author, price, page, store
+	FROM books
+	WHERE title LIKE CONCAT(CONCAT('%', titleBlock), '%')
+
+);
+
+return v_ret;
+END;
+/
+
+
+
+
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+
+
+
+
+
+CREATE GLOBAL TEMPORARY TABLE temp_search_table (
+  title varchar2(50)
+)
+ON COMMIT DELETE ROWS;
+
+
+CREATE GLOBAL TEMPORARY TABLE temp_results_table (
+  ID number,
+  ISBN number,  
+  title varchar2(4000),
+  author varchar2(4000),
+  price number,
+  page varchar2(4000),
+  store varchar2(4000)
+)
+ON COMMIT DELETE ROWS;
+
+
+
+
+
+
+
+CREATE OR REPLACE PROCEDURE search_proc IS
+BEGIN
+	FOR tst_book IN (SELECT title FROM temp_search_table)
+	LOOP
+		FOR t_book IN (SELECT ID, ISBN, title, author, price, page, store FROM udfBookSearch                           (tst_book.title))
+		LOOP
+			INSERT INTO temp_results_table
+			(ID, ISBN, title, author, price, page, store)
+			VALUES (t_book.ID, t_book.ISBN, t_book.title, t_book.author, t_book.price,                                 t_book.page, t_book.store);
+		END LOOP;
+	END LOOP; 
+	FOR book IN (SELECT title FROM temp_results_table)
+	LOOP
+		DBMS_OUTPUT.PUT_LINE ('Loop test. Title : ' || book.title);
+	END LOOP;
+END;
+/
+
+
+
+
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+
+
+
+
+create or replace type tm_book as object (
+  ID number,
+  ISBN number,  
+  title varchar2(4000),
+  author varchar2(4000),
+  price number,
+  page varchar2(4000),
+  store varchar2(4000)
+);
+/
+
+
+
+create or replace type tm_table as table of tm_book;
+/
+
+
+CREATE OR REPLACE FUNCTION
+main_func ( s_word_count number )
+RETURN tm_table as
+    	v_ret   tm_table;
+BEGIN
+select 
+	tm_book(ID, ISBN, title, author, price, page, store)
+	bulk collect into
+	v_ret
+FROM
+(
+	SELECT ID, ISBN, title, author, price, page, store
+	FROM temp_results_table
+	GROUP BY ID, ISBN, title, author, price, page, store
+	HAVING COUNT(*) > s_word_count-1
+);
+
+return v_ret;
+END;
+/
+
+
+
+
+
+
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+-----------------------------------------------------
+
+
+
+
+
+
+BEGIN
+INSERT INTO temp_search_table VALUES ('Harry');
+INSERT INTO temp_search_table VALUES ('Potter');
+INSERT INTO temp_search_table VALUES ('Locket');
+search_proc();
+END;
+/
+
+
+SELECT * FROM main_func(3);
+
+SELECT * FROM TABLE(main_func(3));
+
+
+SELECT price FROM main_func(3);
+
+SELECT id FROM TABLE(main_func(3));
